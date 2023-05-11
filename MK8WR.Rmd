@@ -1,0 +1,107 @@
+---
+title: "MK8WR"
+author: "Greg Bedwell"
+date: "2023-05-10"
+output: html_document
+---
+
+```{r}
+library(rvest)
+```
+
+```{r}
+page150 <- read_html("https://mkwrs.com/mk8dx/wrs.php")
+page200 <- read_html("https://mkwrs.com/mk8dx/wrs_200.php")
+
+# Times as of 05/10/2023
+times150 <- html_table(page150, header = TRUE)[[2]]
+times200 <- html_table(page200, header = TRUE)[[2]]
+
+ltimes <- list( times150, times200 )
+
+ltimes <- lapply( X = ltimes,
+                  FUN = function(x){
+                    x %>%
+                      dplyr::select("Track", "Time+Video", "Character", "Vehicle", "Tires", "Glider") %>%
+                      dplyr::mutate( `Time+Video` = gsub("'", ":", `Time+Video` ),
+                                     `Time+Video` = gsub("\"", ":", `Time+Video` ) ) %>%
+                      tidyr::separate( col = `Time+Video`, into = c( "min", "sec", "ms" ), sep = ":" ) %>%
+                      dplyr::mutate( min = as.numeric( min ),
+                                     sec = as.numeric( sec ),
+                                     ms = as.numeric( ms ),
+                                     time = ( 60 * min ) + ( sec ) + ( ms / 1000 ) ) %>%
+                      dplyr::select( "Track", "time", "Character", 
+                                     "Vehicle", "Tires", "Glider" ) %>%
+                      magrittr::set_colnames( c( "track", "time", "character", 
+                                                 "vehicle", "tires", "glider" ) ) %>%
+                      tidyr::drop_na() %>%
+                      dplyr::arrange( time ) %>%
+                      dplyr::mutate( fold = time / max( time ) )
+                    }
+                  )
+
+ltimes <- Map(cbind, ltimes, cc = c( 150, 200 ) )
+```
+
+```{r}
+timesdf <- do.call( rbind, ltimes ) %>%
+  dplyr::select( track, fold ) %>%
+  dplyr::group_by( track ) %>%
+  dplyr::summarise( meanf = mean( fold ) ) %>%
+  dplyr::arrange( meanf ) %>%
+  dplyr::mutate( mean.rank = dplyr::row_number(),
+                 rmkd = 500 * meanf )
+```
+
+```{r}
+write.table(x = timesdf,
+            file = "~/Desktop/MK8WR_rmkd.txt",
+            sep = "\t",
+            quote = FALSE,
+            row.names = FALSE,
+            col.names = TRUE)
+
+openxlsx::write.xlsx(x = timesdf, file = "MK8WR_rmkd.xlsx")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
