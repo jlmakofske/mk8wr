@@ -72,13 +72,17 @@ ltimes <- Map(cbind, ltimes, cc = c( 150, 200 ) )
 ```
 
 ```{r}
+
 timesdf <- do.call( rbind, ltimes ) %>%
+  dplyr::select( track, fold, cc ) %>%
+  unique() %>%
   dplyr::select( track, fold ) %>%
   dplyr::group_by( track ) %>%
   dplyr::summarise( meanf = mean( fold ) ) %>%
   dplyr::arrange( meanf ) %>%
   dplyr::mutate( mean.rank = dplyr::row_number(),
                  rmkd = 500 * meanf )
+
 ```
 
 # empirical time trials data
@@ -158,6 +162,11 @@ write.table(x = dat_export,
 
 openxlsx::write.xlsx(x = timesdf, file = "outs/mk8_export.xlsx")
 ```
+
+```{r}
+dat_export %>% dplyr::arrange(desc(ptl))
+```
+
 
 ```{r}
 sessionInfo()
