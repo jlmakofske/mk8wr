@@ -14,15 +14,16 @@ library(ggplot2)
 # functions
 ```{r}
 
-lm_eqn <- function(df){
-    m <- lm(etl ~ rmkd, df);
+lm_eqn <- function(etl){
+  
+    test <- etl
+    m <- lm(get(test) ~ rmkd, dat);
     eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
          list(a = format(unname(coef(m)[1]), digits = 2),
               b = format(unname(coef(m)[2]), digits = 2),
              r2 = format(summary(m)$r.squared, digits = 3)))
     as.character(as.expression(eq));
 }
-
 
 ```
 
@@ -99,9 +100,28 @@ etl <- etl[,-1]
 names(etl) <- as.character(etl[1,])
 etl <- etl[-1,]
 
-etl <- etl[,c("track", "cup", "etl")]
+etl <- etl[,c("track", "cup", "etl_jess", "etl_nathan","baby_park_center_jess",  "baby_park_center_nathan")]
 
-etl[["etl"]] <- as.numeric(etl[["etl"]])
+etl <- etl %>%
+  dplyr::filter(!is.na(track)) %>%
+  dplyr::filter(track != "")
+
+etl[["etl_jess"]] <- as.numeric(etl[["etl_jess"]])
+etl[["etl_nathan"]] <- as.numeric(etl[["etl_nathan"]])
+etl[["baby_park_center_jess"]] <- as.numeric(etl[["baby_park_center_jess"]])
+etl[["baby_park_center_nathan"]] <- as.numeric(etl[["baby_park_center_nathan"]])
+
+# calculate norm data
+## baby_park_center
+### mean of jess and nathan's baby park center estimates
+baby_park_center = (etl$baby_park_center_jess[!is.na(etl$baby_park_center_jess)] + etl$baby_park_center_nathan[!is.na(etl$baby_park_center_nathan)])/2
+
+etl <- etl %>%
+  dplyr::mutate(norm_jess = (etl_jess / etl_jess[track == "GCN Baby Park"])*baby_park_center,
+                norm_nathan = (etl_nathan / etl_nathan[track == "GCN Baby Park"])*baby_park_center,
+                etl = (norm_jess + norm_nathan)/2)
+
+
 ```
 
 # join data and make linear model
@@ -109,40 +129,71 @@ etl[["etl"]] <- as.numeric(etl[["etl"]])
 # join data
 dat <- etl %>%
   dplyr::left_join(timesdf) %>%
-  dplyr::filter(track != "GCN Baby Park" & !is.na(track)) %>%
-  dplyr::filter(track != "")
+  dplyr::filter(track != "GCN Baby Park")
 
 d_min <- min(dat$rmkd)
 d_max <- max(dat$rmkd)
 
+# calc km from model
+model_avg <- lm(etl ~ rmkd, data = dat)
+model_jess <- lm(norm_jess ~ rmkd, data = dat)
+model_nathan <- lm(norm_nathan ~ rmkd, data = dat)
+
+dat <- dat %>%
+  dplyr::mutate(ptl_avg = predict(model_avg, newdata = data.frame(rmkd = dat$rmkd)),
+                ptl_jess = predict(model_jess, newdata = data.frame(rmkd = dat$rmkd)),
+                ptl_nathan = predict(model_nathan, newdata = data.frame(rmkd = dat$rmkd)))
+
+# write minimal table for export
+dat_export <- dat %>%
+  dplyr::select(track, cup, etl, ptl_avg, ptl_jess, ptl_nathan, rmkd)
+
+# add regression line text
 
 #make initial plot
-p <- dat %>%
+p_avg <- dat %>%
   ggplot(aes(x = rmkd, y = etl)) +
   geom_point() +
   geom_smooth(method = "lm") +
   xlim(d_min-1,420)+
+  ylim(1.5, 3.75)+
   xlab("RMKD (Relative Mario Kart Distance) \n in arbitrary units") +
-  ylab("ETL (Empirical Track Length) \n in km")
+  ylab("ETL (Empirical Track Length) \n in km") +
+  geom_text(x = 300, y = 3.25, label = lm_eqn("etl"), parse = TRUE) +
+  theme_bw(base_size = 16) +
+  ggtitle("Average (Jess and Nathan) norm")
 
-# add regression line text
-p <- p + geom_text(x = 300, y = 3.25, label = lm_eqn(dat), parse = TRUE) +
-  theme_bw(base_size = 16)
+p_jess <- dat %>%
+  ggplot(aes(x = rmkd, y = norm_jess)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlim(d_min-1,420)+
+  ylim(1.5, 3.75)+
+  xlab("RMKD (Relative Mario Kart Distance) \n in arbitrary units") +
+  ylab("ETL (Empirical Track Length) \n in km") +
+  geom_text(x = 300, y = 2.9, label = lm_eqn("norm_jess"), parse = TRUE) +
+  theme_bw(base_size = 16) +
+  ggtitle("Jess norm")
 
-# calc km from model
-model <- lm(etl ~ rmkd, data = dat)
+p_nathan <- dat %>%
+  ggplot(aes(x = rmkd, y = norm_nathan)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlim(d_min-1,420)+
+  ylim(1.5, 3.75)+
+  xlab("RMKD (Relative Mario Kart Distance) \n in arbitrary units") +
+  ylab("ETL (Empirical Track Length) \n in km") +
+  geom_text(x = 300, y = 3.25, label = lm_eqn(etl = "norm_nathan"), parse = TRUE) +
+  theme_bw(base_size = 16) +
+  ggtitle("Nathan norm")
+  
 
-#summary(model)
-
-dat <- dat %>%
-  dplyr::mutate(ptl = predict(model, newdata = data.frame(rmkd = dat$rmkd)))
-
-# write minimal table for export
-dat_export <- dat %>%
-  dplyr::select(track, cup, etl, ptl, rmkd)
-
-summary(model)
-p
+summary(model_avg)
+summary(model_jess)
+summary(model_nathan)
+p_avg
+p_jess
+p_nathan
 
 ```
 
@@ -171,10 +222,6 @@ write.table(x = dat_export,
             col.names = TRUE)
 
 openxlsx::write.xlsx(x = timesdf, file = "outs/mk8_export.xlsx")
-```
-
-```{r}
-dat_export %>% dplyr::arrange(ptl)
 ```
 
 
