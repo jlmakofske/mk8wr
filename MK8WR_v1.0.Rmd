@@ -108,18 +108,25 @@ etl[["etl"]] <- as.numeric(etl[["etl"]])
 ```{r}
 # join data
 dat <- etl %>%
-  dplyr::left_join(timesdf)
+  dplyr::left_join(timesdf) %>%
+  dplyr::filter(track != "GCN Baby Park" & !is.na(track)) %>%
+  dplyr::filter(track != "")
+
+d_min <- min(dat$rmkd)
+d_max <- max(dat$rmkd)
+
 
 #make initial plot
 p <- dat %>%
   ggplot(aes(x = rmkd, y = etl)) +
   geom_point() +
   geom_smooth(method = "lm") +
+  xlim(d_min-1,420)+
   xlab("RMKD (Relative Mario Kart Distance) \n in arbitrary units") +
   ylab("ETL (Empirical Track Length) \n in km")
 
 # add regression line text
-p <- p + geom_text(x = 290, y = 3.5, label = lm_eqn(dat), parse = TRUE) +
+p <- p + geom_text(x = 300, y = 3.25, label = lm_eqn(dat), parse = TRUE) +
   theme_bw(base_size = 16)
 
 # calc km from model
@@ -154,7 +161,7 @@ openxlsx::write.xlsx(x = timesdf, file = "outs/MK8WR_rmkd.xlsx")
 
 
 ## jess outputs
-ggsave("outs/lm_plot.png",p, width = 6, height = 4)
+ggsave("outs/lm_plot.png",p, width = 5, height = 4)
 
 write.table(x = dat_export,
             file = "outs/mk8_export.txt",
