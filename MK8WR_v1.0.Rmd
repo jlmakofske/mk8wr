@@ -108,8 +108,7 @@ etl[["etl"]] <- as.numeric(etl[["etl"]])
 ```{r}
 # join data
 dat <- etl %>%
-  dplyr::left_join(timesdf) %>%
-  dplyr::arrange(etl)
+  dplyr::left_join(timesdf)
 
 #make initial plot
 p <- dat %>%
@@ -120,7 +119,7 @@ p <- dat %>%
   ylab("ETL (Empirical Track Length) \n in km")
 
 # add regression line text
-p <- p + geom_text(x = 325, y = 4, label = lm_eqn(dat), parse = TRUE) +
+p <- p + geom_text(x = 290, y = 3.5, label = lm_eqn(dat), parse = TRUE) +
   theme_bw(base_size = 16)
 
 # calc km from model
@@ -134,6 +133,10 @@ dat <- dat %>%
 # write minimal table for export
 dat_export <- dat %>%
   dplyr::select(track, cup, etl, ptl, rmkd)
+
+summary(model)
+p
+
 ```
 
 # export
@@ -164,7 +167,7 @@ openxlsx::write.xlsx(x = timesdf, file = "outs/mk8_export.xlsx")
 ```
 
 ```{r}
-dat_export %>% dplyr::arrange(desc(ptl))
+dat_export %>% dplyr::arrange(ptl)
 ```
 
 
